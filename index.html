@@ -1,0 +1,182 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="initial-scale=1, user-scalable=no, width=device-width">
+        <title>Final Project</title>
+        <link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css">
+        <style>
+            .imgSplash {
+                width: 100%;
+            }
+            .h1Splash {
+                text-align: center;
+            }
+            
+        </style>
+    </head>
+    <body>
+        <section data-role="page" id="splash">
+            <article role="main" class="ui-content">
+                <img src="http://www.innovum.mx/themes/images/main.jpg" alt="Monty Python and The Holy Grail" class="imgSplash">
+                <h1 class="h1Splash">Black Comedy Database</h1>
+            </article>
+        </section>
+        
+        <section data-role="page" id="home">
+            <header data-role="header" data-position="fixed">
+                <h1>BCDb</h1>
+            </header>
+            <article role="main" class="ui-content">
+                <div data-role="collapsible" data-collapsed-icon="carat-u" data-expanded-icon="carat-d" data-collapsed="false">
+                    <h2>Save a Movie</h2>
+                    <form class="ui-body ui-body-a ui-corner-all" id="formMovie">
+                        <label for="fieldCode">Code: </label><input type="text" placeholder="MPHG" name="fieldCode" id="fieldCode"><br>
+                        <label for="fieldName">Name: </label><input type="text" placeholder="Monty Python and The Holy Grail" name="fieldName" id="fieldName"><br>
+                        <label for="fieldYear">Year: </label><input type="number" placeholder="1975" name="fieldYear" id="fieldYear"><br>
+                        <div class="ui-grid-b">
+                            <div class="ui-block-a">
+                                <input type="reset" value="Reset" id="btnReset">
+                            </div>
+                            <div class="ui-block-b">
+                                <input type="button" value="Save" id="btnSave">
+                            </div>
+                            <div class="ui-block-c">
+                                <input type="button" value="Show" id="btnShow">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div id="divShow"></div>
+
+                <div data-role="popup" class="ui-content" id="popSaved">Movie saved!</div>
+                <div data-role="popup" class="ui-content" id="popDeleted">Movie deleted</div>
+                <div data-role="popup" class="ui-content" id="popErrorCode">ERROR: Fill all fields!</div>
+                <div data-role="popup" class="ui-content" id="popErrorDupe">ERROR: Movie already saved!</div>
+                <div data-role="popup" class="ui-content" id="popErrorNull">ERROR: Movie does not exist!</div>
+            </article>
+            <footer data-role="footer" data-position="fixed">
+                    <h4>&nbsp;</h4>
+                    <a href="#options" data-icon="gear" data-iconpos="notext" data-transition="pop" class="ui-btn-right">Options</a>
+                </footer>
+        </section>
+
+        <section data-role="page" data-dialog="true" id="options">
+            <header data-role="header">
+                <h1>Options</h1>
+            </header>
+            <article role="main" class="ui-content">
+                <p>Somethin Interesting</p>
+                <a href="#" class="ui-btn ui-corner-all ui-btn-b ui-shadow">Delete All Data</a>
+            </article>
+        </section>
+
+        <script src="https://code.jquery.com/jquery-1.11.1.min.js"></script>
+        <script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+        <script src="http://cdn.jsdelivr.net/npm/pouchdb@6.4.3/dist/pouchdb.min.js"></script>
+        <script>
+             $(function(){
+                "use strict";
+
+                var db;
+
+                function initDB() {
+                    db = new PouchDB("bhmovies");
+                    console.log(db);
+                    return db;
+                }
+
+                initDB();
+              
+                var splashScreen = setTimeout(showHome, 3000);
+                function showHome() {
+                    clearTimeout(splashScreen);
+                    $.mobile.navigate("#home");
+                }
+
+                var $elFormMovie = $("#formMovie"),
+                    $elBtnReset = $("#btnReset"),
+                    $elBtnSave = $("#btnSave"),
+                    $elBtnShow = $("#btnShow"),
+                    $elDivShow = $("#divShow");
+
+                function fnClearForm() {
+                    $elFormMovie[0].reset();
+                }
+
+                function fnSaveMovie() {
+                    var $valCode = $("#fieldCode").val(),
+                        $valName = $("#fieldName").val(),
+                        $valYear = $("#fieldYear").val();
+
+                    $valCode = $valCode.toUpperCase();
+
+                    var aMovie = {
+                        "_id" : $valCode,
+                        "mName" : $valName,
+                        "mYear" : $valYear
+                    }
+
+                    console.log(aMovie);
+
+                    db.put(aMovie, function(error, success){
+                        if(success) {
+                            fnClearForm();
+                            $("#popSaved").popup();
+                            $("#popSaved").popup("open");
+                        } else {
+                            switch(error.status) {
+                                case 409:
+                                    $("#popErrorDupe").popup();
+                                    $("#popErrorDupe").popup("open");
+                                    break;
+                                case 412: 
+                                    $("#popErrorCode").popup();
+                                    $("#popErrorCode").popup("open");
+                                    break;
+                                default:
+                                    console.log(error);
+                                    alert("ERROR - Contact the developer!")
+                                    break;
+                            }
+                        }
+                    });
+                }
+
+                function fnShowMovies() {
+                    db.allDocs({"include_docs" : true, "ascending" : true}, function(error, success){
+                        if(success){
+                            //console.log(success.rows);
+                            fnShowMoviesTable(success.rows);
+                        } else {
+                            console.log(error);
+                        }
+                    });
+                }
+
+                function fnShowMoviesTable(data){
+                    var str = "<p><table id='tableMovies'>" + 
+                    "<tr><th>Code</th><th>Name</th><th>Year</th><th class='thEmpty'>&nbsp;</th></tr>";
+                        for(var i = 0; i < data.length; i++) {
+                            str += "<tr><td>" + data[i].doc._id +
+                            "</td><td>" + data[i].doc.mName +
+                            "</td><td>" + data[i].doc.mYear +
+                            "</td><td class='btnPencil'>&#x270e;</td></tr>";
+                        }
+                    str +="</table></p>";
+                    $elDivShow.html(str);
+                    $elDivShow.hide().fadeIn(250);
+                }
+                
+                $elBtnReset.on("click", fnClearForm);
+                $elBtnSave.on("click", fnSaveMovie);
+                $elBtnShow.on("click", fnShowMovies);
+            });
+        </script>
+    </body>
+    <!--
+        Name: Rafael Olivarez
+        Date: 05/123/18
+        Project: Final Project
+    -->
+</html> 
